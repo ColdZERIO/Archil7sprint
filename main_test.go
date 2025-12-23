@@ -1,13 +1,13 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCafeNegative(t *testing.T) {
@@ -55,16 +55,17 @@ func TestCafeCount(t *testing.T) {
 
 	requests := []struct {
 		URL      string
+		status   int
 		expected int
 	}{
-		{"/cafe?city=moscow&count=0", 0},
-		{"/cafe?city=moscow&count=1", 1},
-		{"/cafe?city=moscow&count=2", 2},
-		{"/cafe?city=moscow&count=100", min(len(cafeList["moscow"]))},
-		{"/cafe?city=tula&count=0", 0},
-		{"/cafe?city=tula&count=1", 1},
-		{"/cafe?city=tula&count=2", 2},
-		{"/cafe?city=tula&count=100", min(len(cafeList["tula"]))},
+		{"/cafe?city=moscow&count=0", http.StatusOK, 0},
+		{"/cafe?city=moscow&count=1", http.StatusOK, 1},
+		{"/cafe?city=moscow&count=2", http.StatusOK, 2},
+		{"/cafe?city=moscow&count=100", http.StatusOK, len(cafeList["moscow"])},
+		{"/cafe?city=tula&count=0", http.StatusOK, 0},
+		{"/cafe?city=tula&count=1", http.StatusOK, 1},
+		{"/cafe?city=tula&count=2", http.StatusOK, 2},
+		{"/cafe?city=tula&count=100", http.StatusOK, len(cafeList["tula"])},
 	}
 
 	for _, test := range requests {
@@ -73,6 +74,7 @@ func TestCafeCount(t *testing.T) {
 		count := 0
 
 		handler.ServeHTTP(res, req)
+		require.Equal(t, test.status, res.Code)
 
 		// Получаем значение из тела запроса
 		body := res.Body.String()
@@ -80,7 +82,6 @@ func TestCafeCount(t *testing.T) {
 		bodyTrim := strings.TrimSpace(body)
 		// Разделяем на слайс строк для вычисления количества элементов
 		bodySplit := strings.Split(bodyTrim, ",")
-		log.Println(bodySplit)
 
 		/* Если строка пустая, возвращаем 0.
 		Если нет, присваиваем количество значений в слайса.*/
@@ -98,13 +99,16 @@ func TestCafeCount(t *testing.T) {
 func TestCafeSearch(t *testing.T) {
 	handler := http.HandlerFunc(mainHandle)
 
-	requests := []struct{
+	requests := []struct {
 		searchURL string
-		expCount int
+		status    int
+		expCount  int
 	}{
-		{"/cafe?city=moscow&search=фасоль", 0},
-		{"/cafe?city=moscow&search=кофе", 2},
-		{"/cafe?city=moscow&search=вилка", 1},
+		{"/cafe?city=moscow&search=фасоль", http.StatusOK, 0},
+		{"/cafe?city=moscow&search=кофе", http.StatusOK, 2},
+		{"/cafe?city=moscow&search=вилка", http.StatusOK, 1},
+		{"/cafe?city=moscow&search=", http.StatusOK, 5},
+		{"/cafe?city=moscow&search=и", http.StatusOK, 3},
 	}
 
 	for _, test := range requests {
@@ -113,6 +117,7 @@ func TestCafeSearch(t *testing.T) {
 		count := 0
 
 		handler.ServeHTTP(res, req)
+		require.Equal(t, test.status, res.Code)
 
 		// Получаем значение из тела запроса
 		bodyStr := res.Body.String()
@@ -120,7 +125,6 @@ func TestCafeSearch(t *testing.T) {
 		bodyTrim := strings.TrimSpace(bodyStr)
 		// Разделяем на слайс строк для вычисления количества элементов
 		bodySplit := strings.Split(bodyTrim, ",")
-
 		/* Если строка пустая, возвращаем 0.
 		Если нет, присваиваем количество значений в слайса.*/
 		if bodyStr == "" {
@@ -129,7 +133,7 @@ func TestCafeSearch(t *testing.T) {
 			count = len(bodySplit)
 		}
 
-		// Прогоняем тесты
+		// Прогоняем тесты и сравниваем
 		assert.Equal(t, test.expCount, count)
 	}
 }
