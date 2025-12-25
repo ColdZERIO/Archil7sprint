@@ -103,12 +103,13 @@ func TestCafeSearch(t *testing.T) {
 		searchURL string
 		status    int
 		expCount  int
+		wantFound string
 	}{
-		{"/cafe?city=moscow&search=фасоль", http.StatusOK, 0},
-		{"/cafe?city=moscow&search=кофе", http.StatusOK, 2},
-		{"/cafe?city=moscow&search=вилка", http.StatusOK, 1},
-		{"/cafe?city=moscow&search=", http.StatusOK, 5},
-		{"/cafe?city=moscow&search=и", http.StatusOK, 3},
+		{"/cafe?city=moscow&search=фасоль", http.StatusOK, 0, "фасоль"},
+		{"/cafe?city=moscow&search=кофе", http.StatusOK, 2, "кофе"},
+		{"/cafe?city=moscow&search=вилка", http.StatusOK, 1, "вилка"},
+		{"/cafe?city=moscow&search=", http.StatusOK, 5, ""},
+		{"/cafe?city=moscow&search=и", http.StatusOK, 3, "и"},
 	}
 
 	for _, test := range requests {
@@ -123,14 +124,22 @@ func TestCafeSearch(t *testing.T) {
 		bodyStr := res.Body.String()
 		// Удаляем пробелы в начале и конце
 		bodyTrim := strings.TrimSpace(bodyStr)
+		// Преведение к нижнему регистру строки
+		bodyToLower := strings.ToLower(bodyTrim)
 		// Разделяем на слайс строк для вычисления количества элементов
-		bodySplit := strings.Split(bodyTrim, ",")
+		bodySplit := strings.Split(bodyToLower, ",")
+
 		/* Если строка пустая, возвращаем 0.
 		Если нет, присваиваем количество значений в слайса.*/
 		if bodyStr == "" {
 			count = 0
 		} else {
-			count = len(bodySplit)
+			// Проверка на совпадение тела запроса на наличие ключевых слов в слайсе
+			for _, value := range bodySplit {
+				if strings.Contains(value, test.wantFound) {
+					count++
+				}
+			}
 		}
 
 		// Прогоняем тесты и сравниваем
